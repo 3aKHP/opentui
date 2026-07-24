@@ -208,10 +208,10 @@ pub const OptimizedBuffer = struct {
         const owned_id = allocator.dupe(u8, options.id) catch return BufferError.OutOfMemory;
         errdefer allocator.free(owned_id);
 
-        var scissor_stack: std.ArrayListUnmanaged(ClipRect) = .{};
+        var scissor_stack: std.ArrayListUnmanaged(ClipRect) = .empty;
         errdefer scissor_stack.deinit(allocator);
 
-        var opacity_stack: std.ArrayListUnmanaged(f32) = .{};
+        var opacity_stack: std.ArrayListUnmanaged(f32) = .empty;
         errdefer opacity_stack.deinit(allocator);
 
         const lp = options.link_pool orelse link.initGlobalLinkPool(allocator);
@@ -1040,7 +1040,7 @@ pub const OptimizedBuffer = struct {
 
         const is_ascii_only = utf8.isAsciiOnly(text);
 
-        var grapheme_list: std.ArrayListUnmanaged(utf8.GraphemeInfo) = .{};
+        var grapheme_list: std.ArrayListUnmanaged(utf8.GraphemeInfo) = .empty;
         defer grapheme_list.deinit(self.allocator);
 
         const tab_width: u8 = 2;
