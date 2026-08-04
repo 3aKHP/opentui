@@ -31,7 +31,14 @@ Governing document (prism-vesicle repo):
   Only fork-infrastructure commits that never go upstream (this file,
   fork CI notes) may land on a base branch, after the upstream tag, clearly
   separated from patch commits.
-- Each defect fix lives on its own branch forked from the current base:
+- **Patch branches must be forked from the pristine upstream tag
+  (`v<upstream-version>`), never from a `vesicle/base-*` branch.** Base
+  branches carry fork-only commits that must never leak into upstream PRs
+  (this leaked once into anomalyco/opentui#1329 and required a rebase +
+  force-push to repair). `VESICLE_FORK.md` is also listed in
+  `.git/info/exclude` so an untracked copy on a patch branch cannot be
+  re-added by accident.
+- Each defect fix lives on its own branch forked from the upstream tag:
   - `vesicle/fix-1289-cursor-boundary`
   - `vesicle/fix-1288-wrap-reflow`
 - Each fix is exactly one upstreamable commit (plus its Zig/TS tests) so it can
