@@ -83,6 +83,11 @@ cd packages/core && bun install && bun test
 
 ## Hard rules
 
+- **No force-push, ever.** A branch that has been pushed — above all one
+  backing an open upstream PR — is corrected with follow-up commits only
+  (or by closing and re-opening a clean PR). Rewriting a branch under
+  review orphans review anchors and breaks CI/notification references;
+  the #1329 VESICLE_FORK.md leak should have been repaired this way too.
 - No package renaming or distribution changes during the native correctness
   spike.
 - No unrelated visual or framework changes; patch queue only.
