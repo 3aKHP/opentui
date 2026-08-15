@@ -13,7 +13,14 @@ Governing document (prism-vesicle repo):
 |---|---|---|
 | 3aKHP/prism-vesicle#99 | anomalyco/opentui#1289 | Vertical cursor movement can commit a visual column inside a width-2 CJK grapheme (`packages/core/src/zig/editor-view.zig`, `visualToLogicalCursor`). |
 | 3aKHP/prism-vesicle#89 | anomalyco/opentui#1288 | Soft-wrap incremental reflow anchors the first wrap boundary at the edit offset (chunk-local wrap-offset caches in `text-buffer-segment.zig` + `rope.zig` split behavior). |
-| (to be filed 2026-08-15) | (to be filed) | Markdown backslash escapes render literally with the backslash visible and escape-styled — the query layer cannot fix it (`backslash_escape` is an atomic two-character token and conceal replaces whole ranges), so the worker splits the capture (`packages/core/src/lib/tree-sitter/parser.worker.ts`). JavaScript layer only; no native rebuild. |
+| 3aKHP/prism-vesicle (2026-08-15 report) | anomalyco/opentui#1369 (PR #1370) | Markdown backslash escapes render literally with the backslash visible and escape-styled — the query layer cannot fix it (`backslash_escape` is an atomic two-character token and conceal replaces whole ranges), so the worker splits the capture (`packages/core/src/lib/tree-sitter/parser.worker.ts`). JavaScript layer only; no native rebuild. |
+
+Maintenance posture (maintainer, 2026-08-15): upstream review/merge of any
+fork PR is not expected or planned around. The fork is the self-maintained
+Vesicle baseline (Option B distribution, feasibility §6). Upstream PRs remain
+open as courtesy contributions; if upstream ever merges an equivalent fix, the
+corresponding patch branch is removed per the normal trigger (§10) — nothing
+waits on it.
 
 ## Upstream baseline
 
