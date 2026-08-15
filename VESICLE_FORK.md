@@ -1,7 +1,7 @@
 # Vesicle OpenTUI Fork — Baseline And Maintenance Policy
 
 This repository is the Prism Vesicle patch-queue fork of `anomalyco/opentui`.
-It exists to carry two confirmed native editor defects until upstream merges
+It exists to carry confirmed upstream OpenTUI defects until upstream merges
 equivalent fixes. It is not a general OpenTUI product fork.
 
 Governing document (prism-vesicle repo):
@@ -13,6 +13,7 @@ Governing document (prism-vesicle repo):
 |---|---|---|
 | 3aKHP/prism-vesicle#99 | anomalyco/opentui#1289 | Vertical cursor movement can commit a visual column inside a width-2 CJK grapheme (`packages/core/src/zig/editor-view.zig`, `visualToLogicalCursor`). |
 | 3aKHP/prism-vesicle#89 | anomalyco/opentui#1288 | Soft-wrap incremental reflow anchors the first wrap boundary at the edit offset (chunk-local wrap-offset caches in `text-buffer-segment.zig` + `rope.zig` split behavior). |
+| (to be filed 2026-08-15) | (to be filed) | Markdown backslash escapes render literally with the backslash visible and escape-styled — the query layer cannot fix it (`backslash_escape` is an atomic two-character token and conceal replaces whole ranges), so the worker splits the capture (`packages/core/src/lib/tree-sitter/parser.worker.ts`). JavaScript layer only; no native rebuild. |
 
 ## Upstream baseline
 
@@ -39,11 +40,15 @@ Governing document (prism-vesicle repo):
   `.git/info/exclude` so an untracked copy on a patch branch cannot be
   re-added by accident.
 - Each defect fix lives on its own branch forked from the upstream tag:
-  - `vesicle/fix-1289-cursor-boundary`
-  - `vesicle/fix-1288-wrap-reflow`
+  - `vesicle/fix-1289-cursor-boundary` (from v0.5.1, rebased onto main for
+    PR #1329)
+  - `vesicle/fix-1288-wrap-reflow` (from v0.5.1, rebased onto main for
+    PR #1330)
+  - `vesicle/fix-markdown-escape` (from v0.5.3; JavaScript-only fix, no Zig
+    toolchain needed)
 - Each fix is exactly one upstreamable commit (plus its Zig/TS tests) so it can
   be reviewed, bisected, upstreamed, and removed independently. Do not combine
-  the two fixes in one commit.
+  unrelated fixes in one commit.
 - Patch branches must stay `oxfmt`-clean (`semi: false`, `printWidth: 120`) and
   pass `oxlint --deny-warnings` before any upstream PR.
 
