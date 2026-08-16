@@ -150,5 +150,5 @@ if (existsSync(readmePath)) {
 }
 
 console.log(`\nSUCCESS: solid dist prepared as @3akhp/opentui-solid@${targetVersion}`)
-console.log(`  dependency: ${FORK_CORE}@${targetVersion} (rewritten from ${UPSTREAM_CORE}@${coreDep})`)
+console.log(`  dependency: ${FORK_CORE}@${coreVersion} (rewritten from ${UPSTREAM_CORE}@${coreDep})`)
 console.log("Next: bun scripts/fork/publish-scoped.ts --dir=packages/solid/dist --dry-run")
