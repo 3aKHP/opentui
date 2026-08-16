@@ -376,9 +376,24 @@ if (buildLib) {
     },
   ]
 
+  // Fork-infra: the Bun loader imports the fork platform packages by literal
+  // scoped names (see FORK_NATIVE_VARIANTS in src/node-asset-target.ts). They
+  // are not in the source package.json dependencies, so without this list the
+  // bundler inlines the installed stub packages as JS asset chunks and native
+  // resolution breaks in every re-bundling consumer (issue #2, broken in
+  // 0.5.3-zv2).
+  const forkPlatformExternals = [
+    "@3akhp/opentui-core-linux-x64",
+    "@3akhp/opentui-core-linux-x64-musl",
+    "@3akhp/opentui-core-linux-arm64",
+    "@3akhp/opentui-core-linux-arm64-musl",
+    "@3akhp/opentui-core-win32-x64",
+    "@3akhp/opentui-core-win32-arm64",
+  ]
+
   // Keep runtime assets external so Bun consumers can discover literal file imports
   // and Node consumers can resolve package-relative files.
-  const externalPatterns = [...externalDeps, "@opentui/core/parser.worker", "*.wasm", "*.scm"]
+  const externalPatterns = [...externalDeps, ...forkPlatformExternals, "@opentui/core/parser.worker", "*.wasm", "*.scm"]
 
   const portableEntryPoints = [packageJson.module, "src/testing.ts", "src/yoga.ts"]
 
