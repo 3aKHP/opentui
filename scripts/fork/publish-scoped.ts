@@ -37,7 +37,9 @@ interface PackageJson {
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const rootDir = resolve(__dirname, "..", "..")
-const distDir = join(rootDir, "packages", "core", "dist")
+const defaultDistDir = join(rootDir, "packages", "core", "dist")
+const distDirArg = process.argv.find((arg) => arg.startsWith("--dir="))
+const distDir = distDirArg ? resolve(rootDir, distDirArg.slice("--dir=".length)) : defaultDistDir
 const FORK_SCOPE = "@3akhp/"
 
 const dryRun = process.argv.includes("--dry-run")
@@ -47,7 +49,11 @@ function fail(message: string): never {
   process.exit(1)
 }
 
-function run(command: string, runArgs: string[], options: { cwd: string; allowFailure?: boolean }): SpawnSyncReturns<string> {
+function run(
+  command: string,
+  runArgs: string[],
+  options: { cwd: string; allowFailure?: boolean },
+): SpawnSyncReturns<string> {
   const result = spawnSync(command, runArgs, { cwd: options.cwd, encoding: "utf8" })
   if (result.status !== 0 && !options.allowFailure) {
     fail(`${command} ${runArgs.join(" ")} failed:\n${result.stderr.trim() || result.stdout.trim()}`)
