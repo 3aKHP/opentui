@@ -22,10 +22,10 @@
 // npm provenance attestation; record the printed SHA-256 in the release notes.
 
 import { spawnSync, type SpawnSyncReturns } from "node:child_process"
-import { cpSync, existsSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { createHash } from "node:crypto"
 import { dirname, join, resolve } from "node:path"
-import { mkdtempSync, tmpdir } from "node:os"
+import { tmpdir } from "node:os"
 import { fileURLToPath } from "node:url"
 
 interface PackageJson {
