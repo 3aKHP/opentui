@@ -62,9 +62,9 @@ export async function resolveNativeLibraryPath(): Promise<string> {
 
     if (process.arch === "arm64") {
       if (process.env.OPENTUI_LIBC === "musl") {
-        return ((await import("@opentui/core-linux-arm64-musl" as string)) as NativePackageModule).default
+        return ((await import("@3akhp/opentui-core-linux-arm64-musl" as string)) as NativePackageModule).default
       }
-      return ((await import("@opentui/core-linux-arm64" as string)) as NativePackageModule).default
+      return ((await import("@3akhp/opentui-core-linux-arm64" as string)) as NativePackageModule).default
     }
   }
 
@@ -73,7 +73,7 @@ export async function resolveNativeLibraryPath(): Promise<string> {
       return ((await import("@3akhp/opentui-core-win32-x64" as string)) as NativePackageModule).default
     }
     if (process.arch === "arm64") {
-      return ((await import("@opentui/core-win32-arm64" as string)) as NativePackageModule).default
+      return ((await import("@3akhp/opentui-core-win32-arm64" as string)) as NativePackageModule).default
     }
   }
 
