@@ -15,6 +15,19 @@ Governing document (prism-vesicle repo):
 | 3aKHP/prism-vesicle#89 | anomalyco/opentui#1288 | Soft-wrap incremental reflow anchors the first wrap boundary at the edit offset (chunk-local wrap-offset caches in `text-buffer-segment.zig` + `rope.zig` split behavior). |
 | 3aKHP/prism-vesicle (2026-08-15 report) | anomalyco/opentui#1369 (PR #1370) | Markdown backslash escapes render literally with the backslash visible and escape-styled — the query layer cannot fix it (`backslash_escape` is an atomic two-character token and conceal replaces whole ranges), so the worker splits the capture (`packages/core/src/lib/tree-sitter/parser.worker.ts`). JavaScript layer only; no native rebuild. |
 
+### Fork packaging defects (2026-08-16, found by the Vesicle migration PR)
+
+Self-inflicted release/packaging defects in the fork's scoped packages; no
+upstream counterpart. Each is bridged in Vesicle by an interim patch or host
+pin (removal tracked in 3aKHP/prism-vesicle#223) and fixed here per the
+charter with a coordinated `-zv(N+1)` release.
+
+| Fork issue | Defect |
+|---|---|
+| #1 | `@3akhp/opentui-solid@0.5.3-zv3` ships unrewritten `@opentui/*` specifiers in `jsx-runtime.js`, `components.js`, the bun-plugin/transform scripts, and every d.ts — every JSX transpile and the build plugin fail module resolution. The release sweep must assert the old name's absence across all shipped files, not the new name's presence in bundled entries. |
+| #2 | `@3akhp/opentui-core@0.5.3-zv2`'s prebundled Bun entry re-bundled the platform stubs: the linux-x64, linux-x64-musl, and win32-x64 stub chunks file-import JS asset chunks instead of the native libraries, breaking native resolution in every re-bundling consumer (direct execution, npm bundles, compiled binaries). The Node entry is unaffected; externalize the stubs in the core Bun build to match it. |
+| #3 | Markdown `selectionBg`/`selectionFg` propagate to tables only. The 0.4.3 patch port dropped the prose/list-marker/code hunks as "verified no-ops" — wrong: `TextBufferRenderable`/`EditBufferRenderable` selection setters are real at every base since 0.4.3, so non-table Markdown selection regressed to inverted defaults. |
+
 Maintenance posture (maintainer, 2026-08-15): upstream review/merge of any
 fork PR is not expected or planned around. The fork is the self-maintained
 Vesicle baseline (Option B distribution, feasibility §6). Upstream PRs remain
