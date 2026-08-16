@@ -184,13 +184,39 @@ try {
   run("npm", ["publish", "--access", "public", "--tag", "latest", ...(dryRun ? ["--dry-run"] : [])], {
     cwd: distDir,
   })
+  console.log("  npm publish exited 0")
 } finally {
   rmSync(packCwd, { recursive: true, force: true })
 }
 
+// A just-published package can take a minute+ before registry reads reflect
+// the write (observed 2026-08-16: PUT 200 at +0s, GET still 404 at +80s).
+// The publish itself has succeeded by this point — never report it as failed.
+function viewWithRetry(field: string): string {
+  const maxAttempts = 12
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const result = run("npm", ["view", `${mainName}@${mainVersion}`, field], {
+      cwd: rootDir,
+      allowFailure: true,
+    })
+    if (result.status === 0 && result.stdout.trim()) {
+      return result.stdout.trim()
+    }
+    if (attempt === maxAttempts) {
+      fail(
+        `npm view ${field} did not resolve after ${maxAttempts} attempts. ` +
+          "The publish itself succeeded; verify the registry manually and record the hashes.",
+      )
+    }
+    console.log(`WAIT registry metadata not visible yet (attempt ${attempt}/${maxAttempts}); retrying in 15s`)
+    spawnSync("sleep", ["15"])
+  }
+  return ""
+}
+
 if (!dryRun) {
-  const shasum = run("npm", ["view", `${mainName}@${mainVersion}`, "dist.shasum"], { cwd: rootDir }).stdout.trim()
-  const tarball = run("npm", ["view", `${mainName}@${mainVersion}`, "dist.tarball"], { cwd: rootDir }).stdout.trim()
+  const shasum = viewWithRetry("dist.shasum")
+  const tarball = viewWithRetry("dist.tarball")
   console.log(
     [
       "",
