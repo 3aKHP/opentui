@@ -674,6 +674,8 @@ export class MarkdownRenderable extends Renderable {
       syntaxStyle: this._syntaxStyle,
       fg: this._fg,
       bg: this._bg,
+      selectionBg: this._selectionBg,
+      selectionFg: this._selectionFg,
       conceal: this._conceal,
       drawUnstyledText: initialStyledText !== undefined,
       streaming: true,
@@ -795,6 +797,8 @@ export class MarkdownRenderable extends Renderable {
         content: new StyledText([this.createChunk(input.marker.padStart(input.markerWidth) + " ", "markup.list")]),
         width: input.markerWidth + 1,
         flexShrink: 0,
+        selectionBg: this._selectionBg,
+        selectionFg: this._selectionFg,
       }),
     )
 
@@ -941,6 +945,8 @@ export class MarkdownRenderable extends Renderable {
     if (marker.chunks[0]?.text !== markerText) {
       marker.content = new StyledText([this.createChunk(markerText, "markup.list")])
     }
+    marker.selectionBg = this._selectionBg
+    marker.selectionFg = this._selectionFg
   }
 
   private createListChildRenderable(token: MarkedToken, id: string): Renderable | null {
@@ -991,6 +997,8 @@ export class MarkdownRenderable extends Renderable {
       syntaxStyle: this._syntaxStyle,
       fg: this._fg,
       bg: this._bg,
+      selectionBg: this._selectionBg,
+      selectionFg: this._selectionFg,
       conceal: this._concealCode,
       drawUnstyledText: !this._streaming,
       streaming: this._streaming,
@@ -1012,6 +1020,8 @@ export class MarkdownRenderable extends Renderable {
     renderable.syntaxStyle = this._syntaxStyle
     renderable.fg = this._fg
     renderable.bg = this._bg
+    renderable.selectionBg = this._selectionBg
+    renderable.selectionFg = this._selectionFg
     renderable.conceal = this._conceal
     renderable.drawUnstyledText = initialStyledText !== undefined
     renderable.streaming = true
@@ -1053,6 +1063,8 @@ export class MarkdownRenderable extends Renderable {
     renderable.syntaxStyle = this._syntaxStyle
     renderable.fg = this._fg
     renderable.bg = this._bg
+    renderable.selectionBg = this._selectionBg
+    renderable.selectionFg = this._selectionFg
     renderable.conceal = this._concealCode
     renderable.drawUnstyledText = !this._streaming
     renderable.streaming = this._streaming
