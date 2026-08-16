@@ -56,6 +56,15 @@ const buildNative = args.find((arg) => arg === "--native")
 const isDev = args.includes("--dev")
 const buildAll = args.includes("--all") // Build for all platforms
 const gpaSafeStats = args.includes("--gpa-safe-stats")
+// Fork-infra: build a explicit subset of zig targets (e.g. when darwin cannot
+// be built on this host); each target maps back onto its variant for packaging.
+const targetsArg = args.find((arg) => arg.startsWith("--targets="))
+const explicitTargets = targetsArg
+  ? targetsArg
+      .slice("--targets=".length)
+      .split(",")
+      .map((t) => t.trim())
+  : undefined
 
 const variants: Variant[] = [
   { platform: "darwin", arch: "x64" },
@@ -87,6 +96,16 @@ const getZigTarget = (platform: string, arch: string, abi?: string): string => {
   const archMap: Record<string, string> = { x64: "x86_64", arm64: "aarch64" }
   const base = `${archMap[arch] ?? arch}-${platformMap[platform] ?? platform}`
   return abi ? `${base}-${abi}` : base
+}
+
+// Full build.zig target spellings; linux-gnu pins glibc 2.17 (see the
+// TARGETS table in src/zig/build.zig), so -Dtarget must use these.
+const getFullZigTarget = (platform: string, arch: string, abi?: string): string => {
+  const short = getZigTarget(platform, arch, abi)
+  if (platform === "linux" && abi !== "musl") return `${short}-gnu.2.17`
+  if (platform === "win32") return `${short}-gnu`
+  if (platform === "darwin") return `${short}.13.0`
+  return short
 }
 
 const replaceLinks = (text: string): string => {
@@ -203,9 +222,36 @@ if (buildNative) {
     zigArgs.push("-Dgpa-safe-stats=true")
   }
 
-  runCommand("zig", zigArgs, join(rootDir, "src", "zig"), "Error: Zig build failed")
+  if (explicitTargets) {
+    for (const requested of explicitTargets) {
+      const variant = variants.find(
+        (v) =>
+          requested === getZigTarget(v.platform, v.arch, v.abi) ||
+          requested === getFullZigTarget(v.platform, v.arch, v.abi),
+      )
+      const fullTarget = variant ? getFullZigTarget(variant.platform, variant.arch, variant.abi) : requested
+      runCommand(
+        "zig",
+        ["build", `-Doptimize=${isDev ? "Debug" : "ReleaseFast"}`, `-Dtarget=${fullTarget}`],
+        join(rootDir, "src", "zig"),
+        `Error: Zig build failed for target ${fullTarget}`,
+      )
+    }
+  } else {
+    runCommand("zig", zigArgs, join(rootDir, "src", "zig"), "Error: Zig build failed")
+  }
 
-  const variantsToPackage = buildAll ? variants : [getHostVariant()]
+  const variantsToPackage = explicitTargets
+    ? variants.filter((variant) =>
+        explicitTargets.some(
+          (requested) =>
+            requested === getZigTarget(variant.platform, variant.arch, variant.abi) ||
+            requested === getFullZigTarget(variant.platform, variant.arch, variant.abi),
+        ),
+      )
+    : buildAll
+      ? variants
+      : [getHostVariant()]
 
   for (const { platform, arch, abi } of variantsToPackage) {
     const nativeName = `${packageJson.name}-${platform}-${arch}${abi ? `-${abi}` : ""}`

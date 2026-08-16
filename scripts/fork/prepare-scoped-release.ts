@@ -42,6 +42,12 @@ const distDir = join(coreDir, "dist")
 const FORK_NAME = "@3akhp/opentui-core"
 const FORK_REPO = "https://github.com/3aKHP/opentui.git"
 const FORK_ISSUES = "https://github.com/3aKHP/opentui/issues"
+// Variants shipped as fork-built platform packages (must match
+// FORK_NATIVE_VARIANTS in packages/core/src/node-asset-target.ts and the
+// staged packages from stage-platform-packages.ts). All other variants stay
+// pinned to the upstream package at the base version (byte-identical native
+// code there — no platform narrowing).
+const FORK_VARIANTS = ["linux-x64", "linux-x64-musl", "linux-arm64", "linux-arm64-musl", "win32-x64", "win32-arm64"]
 const UPSTREAM_WORKER_SPECIFIER = '"@opentui/core/parser.worker"'
 const FORK_WORKER_SPECIFIER = `"${FORK_NAME}/parser.worker"`
 const ESCAPE_FIX_MARKER = "backslash_escape"
@@ -160,14 +166,8 @@ if (!exportsKeys.includes("./parser.worker")) {
 }
 if (distPackage.optionalDependencies) {
   for (const [name, version] of Object.entries(distPackage.optionalDependencies)) {
-    if (name.startsWith("@3akhp/")) {
-      fail(
-        `${name} in optionalDependencies: fork-native packaging is not implemented yet; ` +
-          "D4 zv1 releases pin upstream native packages",
-      )
-    }
     if (!name.startsWith("@opentui/core-") || version !== baseVersion) {
-      fail(`unexpected optional dependency ${name}@${version}; zv1 pins upstream natives at ${baseVersion}`)
+      fail(`unexpected optional dependency ${name}@${version}; source must pin upstream natives at ${baseVersion}`)
     }
   }
 }
@@ -223,8 +223,37 @@ if (alreadyTransformed) {
 const forkPackage: PackageJson = { ...distPackage }
 forkPackage.name = FORK_NAME
 forkPackage.version = targetVersion
-forkPackage.repository = { type: "git", url: FORK_REPO, directory: "packages/core" }
+forkPackage.repository = { type: "git", url: "git+" + FORK_REPO, directory: "packages/core" }
 forkPackage.bugs = { url: FORK_ISSUES }
+
+// Mixed native map (D4 evolution): fork-built variants resolve the fork
+// platform package at the release version; every other variant keeps the
+// upstream package at the base version. Fork entries require a staged
+// package so a release can never pin a nonexistent fork build.
+if (forkPackage.optionalDependencies) {
+  const mixed: Record<string, string> = {}
+  for (const [name, version] of Object.entries(forkPackage.optionalDependencies)) {
+    const variant = name.replace(/^@opentui\/core-/, "")
+    if (FORK_VARIANTS.includes(variant)) {
+      const stagedManifest = join(coreDir, "node_modules", "@3akhp", `opentui-core-${variant}`, "package.json")
+      if (!existsSync(stagedManifest)) {
+        fail(
+          `fork variant ${variant} is not staged (missing ${stagedManifest}); ` +
+            "run stage-platform-packages.ts first",
+        )
+      }
+      const staged = readJson(stagedManifest)
+      if (staged.version !== targetVersion) {
+        fail(`staged @3akhp/opentui-core-${variant} is ${staged.version}, expected ${targetVersion}`)
+      }
+      mixed[`@3akhp/opentui-core-${variant}`] = targetVersion
+    } else {
+      mixed[name] = version
+    }
+  }
+  forkPackage.optionalDependencies = mixed
+}
+
 writeFileSync(distPackagePath, `${JSON.stringify(forkPackage, null, 2)}\n`)
 
 // --- transform: provenance note in dist/README.md ---------------------------
@@ -261,7 +290,7 @@ console.log(
     "",
     `SUCCESS: dist prepared as ${FORK_NAME}@${targetVersion}`,
     `  base ${baseTag} + ${patchCommits.length} patch commit(s)`,
-    `  optionalDependencies: upstream natives pinned at ${baseVersion} (decision D4)`,
+    `  optionalDependencies: ${FORK_VARIANTS.length} fork natives @${targetVersion} + rest upstream @${baseVersion}`,
     "Next: bun scripts/fork/publish-scoped.ts --dry-run",
   ].join("\n"),
 )

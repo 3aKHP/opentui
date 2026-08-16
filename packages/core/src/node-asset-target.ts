@@ -16,6 +16,19 @@ const NATIVE_FILE_NAMES = {
   win32: "opentui.dll",
 } as const
 
+// Variants the fork builds and publishes under its own scope, carrying the
+// native editor fixes. Every other variant resolves the upstream
+// @opentui/core-* package: at the fork's base those targets are
+// byte-identical upstream builds, so the exposed platform set stays whole.
+const FORK_NATIVE_VARIANTS: ReadonlySet<string> = new Set([
+  "linux-x64",
+  "linux-x64-musl",
+  "linux-arm64",
+  "linux-arm64-musl",
+  "win32-x64",
+  "win32-arm64",
+])
+
 export function getNativeAssetDescriptor(target: NodeAssetTarget): NativeAssetDescriptor {
   if (!Object.hasOwn(NATIVE_FILE_NAMES, target.platform) || (target.arch !== "arm64" && target.arch !== "x64")) {
     throw new Error(`Unsupported OpenTUI Node asset target: ${String(target.platform)}-${String(target.arch)}`)
@@ -29,7 +42,8 @@ export function getNativeAssetDescriptor(target: NodeAssetTarget): NativeAssetDe
   }
 
   const libcSuffix = target.platform === "linux" && target.libc === "musl" ? "-musl" : ""
-  const packageName = `@opentui/core-${target.platform}-${target.arch}${libcSuffix}`
+  const variant = `${target.platform}-${target.arch}${libcSuffix}`
+  const packageName = FORK_NATIVE_VARIANTS.has(variant) ? `@3akhp/opentui-core-${variant}` : `@opentui/core-${variant}`
   const fileName = NATIVE_FILE_NAMES[target.platform]
   return {
     key: `${packageName}/${fileName}`,
