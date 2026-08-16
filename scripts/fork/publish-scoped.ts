@@ -123,9 +123,21 @@ for (const [name, version] of forkPlatformDeps) {
     )
   }
   console.log(`PUBLISH ${name}@${version} (platform package before main — D3c order)`)
-  run("npm", ["publish", "--access", "public", "--tag", "latest", ...(dryRun ? ["--dry-run"] : [])], {
-    cwd: stagedDir,
-  })
+  const publishResult = spawnSync(
+    "npm",
+    ["publish", "--access", "public", "--tag", "latest", ...(dryRun ? ["--dry-run"] : [])],
+    { cwd: stagedDir, encoding: "utf8" },
+  )
+  if (publishResult.status !== 0) {
+    // A prior interrupted run may have published this version while registry
+    // reads still lag; the registry's overwrite refusal is authoritative.
+    const stderr = publishResult.stderr ?? ""
+    if (stderr.includes("cannot publish over the previously published versions")) {
+      console.log(`SKIP ${name}@${version} (registry reports it already published — resume)`)
+    } else {
+      fail(`npm publish for ${name}@${version} failed:\n${stderr.trim() || publishResult.stdout.trim()}`)
+    }
+  }
 }
 
 // --- D3c step 2: every pin must resolve on the registry before main ----------
