@@ -75,9 +75,20 @@ function versionExistsOnRegistry(name: string, version: string): boolean {
 
 // --- guards -----------------------------------------------------------------
 
-const currentBranch = gitOutput("branch", "--show-current")
-if (!currentBranch.startsWith("vesicle/release/")) {
-  fail(`must run on a vesicle/release/* branch, currently on ${JSON.stringify(currentBranch)}`)
+function onReleaseContext(): boolean {
+  const branch = gitOutput("branch", "--show-current")
+  if (branch.startsWith("vesicle/release/")) return true
+  // actions/checkout of a release tag leaves HEAD detached; the dist version
+  // pin below still locks the release identity.
+  if (process.env.GITHUB_ACTIONS === "true" && process.env.GITHUB_REF_TYPE === "tag") {
+    const tag = spawnSync("git", ["describe", "--tags", "--exact-match", "HEAD"], { cwd: rootDir, encoding: "utf8" })
+    return tag.status === 0 && /^v\d+\.\d+\.\d+-zv\d+$/.test(tag.stdout.trim())
+  }
+  return false
+}
+
+if (!onReleaseContext()) {
+  fail("must run on a vesicle/release/* branch (or its release tag in CI)")
 }
 
 const dirtyFiles = gitOutput("status", "--porcelain")

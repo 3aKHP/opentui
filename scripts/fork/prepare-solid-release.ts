@@ -54,9 +54,20 @@ function gitOutput(...gitArgs: string[]): string {
   return result.stdout.trim()
 }
 
-const currentBranch = gitOutput("branch", "--show-current")
-if (!currentBranch.startsWith("vesicle/release/")) {
-  fail(`must run on a vesicle/release/* branch, currently on ${JSON.stringify(currentBranch)}`)
+function onReleaseContext(version: string): boolean {
+  const branch = gitOutput("branch", "--show-current")
+  if (branch.startsWith("vesicle/release/")) return true
+  // actions/checkout of a release tag leaves HEAD detached with no branch
+  // name; accept an exact-match tag in that context.
+  if (process.env.GITHUB_ACTIONS === "true" && process.env.GITHUB_REF_TYPE === "tag") {
+    const tag = spawnSync("git", ["describe", "--tags", "--exact-match", "HEAD"], { cwd: rootDir, encoding: "utf8" })
+    return tag.status === 0 && tag.stdout.trim() === `v${version}`
+  }
+  return false
+}
+
+if (!onReleaseContext(targetVersion)) {
+  fail(`must run on a vesicle/release/* branch (or its exact release tag in CI) for ${targetVersion}`)
 }
 const dirtyFiles = gitOutput("status", "--porcelain")
 if (dirtyFiles && !args.includes("--allow-dirty")) {
