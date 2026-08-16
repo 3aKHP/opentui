@@ -196,6 +196,34 @@ export class TextTableRenderable extends Renderable {
     this.rebuildCells()
   }
 
+  public get selectionBg(): RGBA | undefined {
+    return this._selectionBg
+  }
+
+  public set selectionBg(value: ColorInput | undefined) {
+    const next = value ? parseColor(value) : undefined
+    if (this._selectionBg === next || this._selectionBg?.equals(next)) return
+    this._selectionBg = next
+    if (this._lastLocalSelection?.isActive) {
+      this.applySelectionToCells(this._lastLocalSelection, true)
+    }
+    this.invalidateRasterOnly()
+  }
+
+  public get selectionFg(): RGBA | undefined {
+    return this._selectionFg
+  }
+
+  public set selectionFg(value: ColorInput | undefined) {
+    const next = value ? parseColor(value) : undefined
+    if (this._selectionFg === next || this._selectionFg?.equals(next)) return
+    this._selectionFg = next
+    if (this._lastLocalSelection?.isActive) {
+      this.applySelectionToCells(this._lastLocalSelection, true)
+    }
+    this.invalidateRasterOnly()
+  }
+
   public get wrapMode(): "none" | "char" | "word" {
     return this._wrapMode
   }

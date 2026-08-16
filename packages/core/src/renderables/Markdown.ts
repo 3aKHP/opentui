@@ -87,6 +87,8 @@ export interface MarkdownOptions extends RenderableOptions<MarkdownRenderable> {
   syntaxStyle: SyntaxStyle
   fg?: ColorInput
   bg?: ColorInput
+  selectionBg?: ColorInput
+  selectionFg?: ColorInput
   /** Controls concealment for markdown syntax markers in markdown text blocks. */
   conceal?: boolean
   /** Controls concealment inside fenced code blocks rendered by CodeRenderable. */
@@ -221,6 +223,8 @@ interface ResolvedTableRenderableOptions {
   showBorders: boolean
   borderStyle: BorderStyle
   borderColor: ColorInput
+  selectionBg: RGBA | undefined
+  selectionFg: RGBA | undefined
   selectable: boolean
 }
 
@@ -263,6 +267,8 @@ export class MarkdownRenderable extends Renderable {
   private _syntaxStyle: SyntaxStyle
   private _fg?: RGBA
   private _bg?: RGBA
+  private _selectionBg?: RGBA
+  private _selectionFg?: RGBA
   private _conceal: boolean
   private _concealCode: boolean
   private _treeSitterClient?: TreeSitterClient
@@ -299,6 +305,8 @@ export class MarkdownRenderable extends Renderable {
     this._syntaxStyle = options.syntaxStyle
     this._fg = options.fg ? parseColor(options.fg) : undefined
     this._bg = options.bg ? parseColor(options.bg) : undefined
+    this._selectionBg = options.selectionBg ? parseColor(options.selectionBg) : undefined
+    this._selectionFg = options.selectionFg ? parseColor(options.selectionFg) : undefined
     this._conceal = options.conceal ?? this._contentDefaultOptions.conceal
     this._concealCode = options.concealCode ?? this._contentDefaultOptions.concealCode
     this._content = options.content ?? this._contentDefaultOptions.content
@@ -356,6 +364,30 @@ export class MarkdownRenderable extends Renderable {
     const next = value ? parseColor(value) : undefined
     if (!colorsEqual(this._bg, next)) {
       this._bg = next
+      this._styleDirty = true
+    }
+  }
+
+  get selectionBg(): RGBA | undefined {
+    return this._selectionBg
+  }
+
+  set selectionBg(value: ColorInput | undefined) {
+    const next = value ? parseColor(value) : undefined
+    if (!colorsEqual(this._selectionBg, next)) {
+      this._selectionBg = next
+      this._styleDirty = true
+    }
+  }
+
+  get selectionFg(): RGBA | undefined {
+    return this._selectionFg
+  }
+
+  set selectionFg(value: ColorInput | undefined) {
+    const next = value ? parseColor(value) : undefined
+    if (!colorsEqual(this._selectionFg, next)) {
+      this._selectionFg = next
       this._styleDirty = true
     }
   }
@@ -1341,6 +1373,8 @@ export class MarkdownRenderable extends Renderable {
       showBorders: borders,
       borderStyle: this._tableOptions?.borderStyle ?? "single",
       borderColor: this._tableOptions?.borderColor ?? this.getStyle("conceal")?.fg ?? "#888888",
+      selectionBg: this._selectionBg,
+      selectionFg: this._selectionFg,
       selectable: this._tableOptions?.selectable ?? true,
     }
   }
@@ -1360,6 +1394,8 @@ export class MarkdownRenderable extends Renderable {
     tableRenderable.showBorders = options.showBorders
     tableRenderable.borderStyle = options.borderStyle
     tableRenderable.borderColor = options.borderColor
+    tableRenderable.selectionBg = options.selectionBg
+    tableRenderable.selectionFg = options.selectionFg
     tableRenderable.selectable = options.selectable
   }
 
@@ -1403,6 +1439,8 @@ export class MarkdownRenderable extends Renderable {
       borderStyle: options.borderStyle,
       borderColor: options.borderColor,
       selectable: options.selectable,
+      selectionBg: options.selectionBg,
+      selectionFg: options.selectionFg,
     })
   }
 
