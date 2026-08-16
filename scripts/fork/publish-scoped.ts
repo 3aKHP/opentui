@@ -130,17 +130,27 @@ for (const [name, version] of forkPlatformDeps) {
 
 // --- D3c step 2: every pin must resolve on the registry before main ----------
 
-const missing: string[] = []
-for (const [name, version] of [...forkPlatformDeps, ...externalDeps]) {
-  if (!versionExistsOnRegistry(name, version)) {
-    missing.push(`${name}@${version}`)
+// Just-published packages can take ~90s before registry reads reflect the
+// write (observed on both fork releases so far), so re-collect with patience
+// before declaring a pin missing.
+const VERIFY_ATTEMPTS = 12
+let missing: string[] = []
+for (let attempt = 1; attempt <= VERIFY_ATTEMPTS; attempt++) {
+  missing = []
+  for (const [name, version] of [...forkPlatformDeps, ...externalDeps]) {
+    if (!versionExistsOnRegistry(name, version)) {
+      missing.push(`${name}@${version}`)
+    }
   }
-}
-if (missing.length > 0) {
-  fail(
-    `pinned optional dependencies missing from the registry (main package must never publish into this state):\n` +
-      missing.map((entry) => `  - ${entry}`).join("\n"),
-  )
+  if (missing.length === 0) break
+  if (attempt === VERIFY_ATTEMPTS) {
+    fail(
+      `pinned optional dependencies missing from the registry (main package must never publish into this state):\n` +
+        missing.map((entry) => `  - ${entry}`).join("\n"),
+    )
+  }
+  console.log(`WAIT ${missing.length} pins not visible yet (attempt ${attempt}/${VERIFY_ATTEMPTS}); retrying in 15s`)
+  spawnSync("sleep", ["15"])
 }
 console.log(
   `VERIFIED ${forkPlatformDeps.length + externalDeps.length} pinned optional dependencies exist on the registry`,
