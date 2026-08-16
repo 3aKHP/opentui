@@ -88,12 +88,16 @@ forkPackage.repository = { type: "git", url: "git+" + FORK_REPO, directory: "pac
 forkPackage.bugs = { url: FORK_ISSUES }
 writeFileSync(distPackagePath, `${JSON.stringify(forkPackage, null, 2)}\n`)
 
-// Rewrite bundled imports. Match the specifier with or without a subpath,
-// but never when it is part of a platform package name (@opentui/core-…).
-// 0.5.3-zv2 shipped with subpath imports ("@opentui/core/testing") unrewritten
-// and was unusable — the final sweep below now fails the release on any
-// leftover reference.
-const coreSpecifier = /(["'`])@opentui\/core(\/[^"'`]*)?\1/g
+// Rewrite scoped names across EVERY shipped runtime and declaration file.
+// Scope: the core dependency (@opentui/core…) and the package's own
+// self-references (@opentui/solid…, including jsx-runtime / components /
+// bun-plugin entrypoints and their mention in error strings). Cross-package
+// integrations that legitimately stay upstream (@opentui/qrcode,
+// @opentui/keymap, …) are untouched by construction — only core|solid match.
+// 0.5.3-zv2 shipped with unrewritten core subpath imports; zv3 repeated the
+// class of bug for the package's own name and .d.ts files (issue #1) — the
+// final sweep now asserts absence across every .js and .d.ts file.
+const scopedSpecifier = /(["'`])@opentui\/(core|solid)(\/[^"'`]*)?\1/g
 let rewritten = 0
 let leftover = 0
 function rewriteDir(dir: string): void {
@@ -104,33 +108,33 @@ function rewriteDir(dir: string): void {
       rewriteDir(path)
       continue
     }
-    if (!name.endsWith(".js")) continue
+    if (!name.endsWith(".js") && !name.endsWith(".d.ts")) continue
     const source = readFileSync(path, "utf8")
     const next = source.replace(
-      coreSpecifier,
-      (_match, quote: string, subpath?: string) => `${quote}${FORK_CORE}${subpath ?? ""}${quote}`,
+      scopedSpecifier,
+      (_match, quote: string, pkg: string, subpath?: string) => `${quote}@3akhp/opentui-${pkg}${subpath ?? ""}${quote}`,
     )
     if (next !== source) {
       writeFileSync(path, next)
-      const count = source.match(coreSpecifier)?.length ?? 0
+      const count = source.match(scopedSpecifier)?.length ?? 0
       rewritten += count
-      console.log(`REWROTE ${count}x core specifier in ${relative(rootDir, path)}`)
+      console.log(`REWROTE ${count}x scoped specifier in ${relative(rootDir, path)}`)
     }
-    // Any remaining bare-or-subpath reference (excluding platform names) is a
-    // release-blocking defect.
-    const remaining = next.match(/(["'`])@opentui\/core(\/[^"'`]*)?\1/g)
+    const remaining = next.match(scopedSpecifier)
     if (remaining) {
       leftover += remaining.length
-      console.error(`LEFTOVER ${remaining.length}x @opentui/core reference in ${relative(rootDir, path)}`)
+      console.error(`LEFTOVER ${remaining.length}x @opentui/{core,solid} reference in ${relative(rootDir, path)}`)
     }
   }
 }
 rewriteDir(distDir)
 if (leftover > 0) {
-  fail(`${leftover} @opentui/core references remain in solid dist; fix the rewriter before publishing`)
+  fail(`${leftover} @opentui/{core,solid} references remain in solid dist; fix the rewriter before publishing`)
 }
 if (rewritten === 0) {
-  fail("no bundled @opentui/core imports found in solid dist; the bundle shape changed — inspect before publishing")
+  fail(
+    "no bundled @opentui/{core,solid} imports found in solid dist; the bundle shape changed — inspect before publishing",
+  )
 }
 
 if (!existsSync(join(distDir, "LICENSE"))) {

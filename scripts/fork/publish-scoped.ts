@@ -179,6 +179,12 @@ if (versionExistsOnRegistry(mainName, mainVersion)) {
 
 // --- auth (real publishes only) ----------------------------------------------
 
+// Two modes: local token publishing (NPM_AUTH_TOKEN / NPM_CONFIG_USERCONFIG
+// .npmrc) and GitHub Actions Trusted Publishing, where npm exchanges an OIDC
+// id-token per command (id-token: write) — there is no durable registry token
+// for `npm whoami` to verify, so that check is local-mode only.
+const oidcMode = process.env.GITHUB_ACTIONS === "true" && !process.env.NPM_AUTH_TOKEN
+
 if (!dryRun) {
   if (process.env.NPM_AUTH_TOKEN) {
     const npmrcPath = join(process.env.HOME as string, ".npmrc")
@@ -189,7 +195,11 @@ if (!dryRun) {
       console.log("SET UP npm auth from NPM_AUTH_TOKEN")
     }
   }
-  run("npm", ["whoami"], { cwd: rootDir })
+  if (oidcMode) {
+    console.log("AUTH: GitHub Actions OIDC (Trusted Publishing) — npm exchanges the id-token per command")
+  } else {
+    run("npm", ["whoami"], { cwd: rootDir })
+  }
 }
 
 // --- pack for the record, then publish main last -----------------------------
