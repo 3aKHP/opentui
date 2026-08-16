@@ -36,6 +36,8 @@ const FORK_ISSUES = "https://github.com/3aKHP/opentui/issues"
 
 const args = process.argv.slice(2)
 const targetVersion = args.find((arg) => !arg.startsWith("--"))
+const coreVersionArg = args.find((arg) => arg.startsWith("--core-version="))
+const coreVersion = coreVersionArg ? coreVersionArg.slice("--core-version=".length) : targetVersion
 
 function fail(message: string): never {
   console.error(`ERROR: ${message}`)
@@ -80,17 +82,20 @@ if (coreDep === undefined) {
 const forkPackage: PackageJson = { ...distPackage }
 forkPackage.name = "@3akhp/opentui-solid"
 forkPackage.version = targetVersion
-forkPackage.dependencies = { ...distPackage.dependencies, [FORK_CORE]: targetVersion }
+forkPackage.dependencies = { ...distPackage.dependencies, [FORK_CORE]: coreVersion }
 delete forkPackage.dependencies[UPSTREAM_CORE]
 forkPackage.repository = { type: "git", url: "git+" + FORK_REPO, directory: "packages/solid" }
 forkPackage.bugs = { url: FORK_ISSUES }
 writeFileSync(distPackagePath, `${JSON.stringify(forkPackage, null, 2)}\n`)
 
-// Rewrite bundled imports. Match the specifier only where it is NOT part of a
-// platform package name (@opentui/core-…), keeping any such references
-// untouched (solid bundles none today; the guard stays for safety).
-const coreSpecifier = /(["'`])@opentui\/core(?![-A-Za-z0-9])\1/g
+// Rewrite bundled imports. Match the specifier with or without a subpath,
+// but never when it is part of a platform package name (@opentui/core-…).
+// 0.5.3-zv2 shipped with subpath imports ("@opentui/core/testing") unrewritten
+// and was unusable — the final sweep below now fails the release on any
+// leftover reference.
+const coreSpecifier = /(["'`])@opentui\/core(\/[^"'`]*)?\1/g
 let rewritten = 0
+let leftover = 0
 function rewriteDir(dir: string): void {
   for (const name of readdirSync(dir)) {
     const path = join(dir, name)
@@ -101,16 +106,29 @@ function rewriteDir(dir: string): void {
     }
     if (!name.endsWith(".js")) continue
     const source = readFileSync(path, "utf8")
-    const next = source.replace(coreSpecifier, `$1${FORK_CORE}$1`)
+    const next = source.replace(
+      coreSpecifier,
+      (_match, quote: string, subpath?: string) => `${quote}${FORK_CORE}${subpath ?? ""}${quote}`,
+    )
     if (next !== source) {
       writeFileSync(path, next)
       const count = source.match(coreSpecifier)?.length ?? 0
       rewritten += count
       console.log(`REWROTE ${count}x core specifier in ${relative(rootDir, path)}`)
     }
+    // Any remaining bare-or-subpath reference (excluding platform names) is a
+    // release-blocking defect.
+    const remaining = next.match(/(["'`])@opentui\/core(\/[^"'`]*)?\1/g)
+    if (remaining) {
+      leftover += remaining.length
+      console.error(`LEFTOVER ${remaining.length}x @opentui/core reference in ${relative(rootDir, path)}`)
+    }
   }
 }
 rewriteDir(distDir)
+if (leftover > 0) {
+  fail(`${leftover} @opentui/core references remain in solid dist; fix the rewriter before publishing`)
+}
 if (rewritten === 0) {
   fail("no bundled @opentui/core imports found in solid dist; the bundle shape changed — inspect before publishing")
 }
