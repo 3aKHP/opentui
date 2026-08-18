@@ -3,7 +3,10 @@ name: Release
 on:
   push:
     tags:
+      # Fork-infra: fork release tags (-zvN) must never start the upstream
+      # release pipeline from this repository.
       - "v*"
+      - "!*-zv*"
 
 permissions:
   contents: write
