@@ -28,6 +28,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const rootDir = resolve(__dirname, "..", "..")
 const coreDir = join(rootDir, "packages", "core")
+const nativeDir = join(rootDir, "packages", "native")
 
 const FORK_REPO = "https://github.com/3aKHP/opentui.git"
 const FORK_ISSUES = "https://github.com/3aKHP/opentui/issues"
@@ -55,6 +56,18 @@ function fail(message: string): never {
 
 if (!targetVersion || !/^\d+\.\d+\.\d+-zv\d+$/.test(targetVersion)) {
   fail("usage: bun scripts/fork/stage-platform-packages.ts <base-version>-zv<N> [--skip-build]")
+}
+
+// #1391 moved the vendored zig deps behind prepare-zig-deps.sh (they are a
+// tarball on disk, not checked-in directories). The build would fail with
+// "unable to open .../zig-deps/yoga: FileNotFound" without this unpack; it is
+// checksum-guarded and near-free when deps are already staged.
+const prepare = spawnSync("sh", ["scripts/prepare-zig-deps.sh"], {
+  cwd: nativeDir,
+  stdio: "inherit",
+})
+if (prepare.status !== 0) {
+  fail("zig dependency preparation failed; see output above")
 }
 
 if (!skipBuild) {
