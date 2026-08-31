@@ -35,7 +35,13 @@ jobs:
             *) echo "::error::refusing to run the release pipeline for '$GITHUB_REF'"; exit 1 ;;
           esac
 
+      # Full history + tags: prepare-scoped-release.ts verifies the upstream
+      # base tag (e.g. v0.5.9) exists before transforming dist, and counts the
+      # patch commits from it. The default single-ref checkout has no tags.
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       # npm ≥ 11.5.1 is required for Trusted Publishing and provenance; the
       # runner's bundled npm is older.
