@@ -57,6 +57,19 @@ jobs:
         with:
           version: 0.16.0
 
+      # Upstream #1437 separates release symbols during the native build. The
+      # win32 variants cross-built on this runner need llvm-readobj and
+      # llvm-pdbutil (plain binutils cannot read COFF/PDB); with LLVM_BIN set,
+      # ELF variants route to the llvm-* equivalents too. The versioned bin
+      # dir carries the full toolset; the /usr/bin symlinks don't.
+      - name: Install LLVM symbol tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends llvm
+          llvm_bin="$(dirname "$(readlink -f "$(command -v llvm-readobj)")")"
+          echo "LLVM_BIN=$llvm_bin" >> "$GITHUB_ENV"
+          "$llvm_bin/llvm-pdbutil" --version
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
