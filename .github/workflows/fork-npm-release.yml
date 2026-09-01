@@ -68,8 +68,11 @@ jobs:
       # pull llvm-20 from apt.llvm.org.
       - name: Install LLVM symbol tools
         run: |
-          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.txt | sudo tee /etc/apt/trusted.gpg.d/llvm.asc >/dev/null
-          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main" | sudo tee /etc/apt/sources.list.d/llvm20.list
+          curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key -o /tmp/llvm.gpg.key
+          test -s /tmp/llvm.gpg.key
+          sudo mkdir -p /etc/apt/keyrings
+          sudo gpg --dearmor -o /etc/apt/keyrings/llvm.gpg /tmp/llvm.gpg.key
+          echo "deb [signed-by=/etc/apt/keyrings/llvm.gpg] http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main" | sudo tee /etc/apt/sources.list.d/llvm20.list
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends llvm-20
           llvm_bin=/usr/lib/llvm-20/bin
