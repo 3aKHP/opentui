@@ -60,15 +60,22 @@ jobs:
       # Upstream #1437 separates release symbols during the native build. The
       # win32 variants cross-built on this runner need llvm-readobj and
       # llvm-pdbutil (plain binutils cannot read COFF/PDB); with LLVM_BIN set,
-      # ELF variants route to the llvm-* equivalents too. The versioned bin
-      # dir carries the full toolset; the /usr/bin symlinks don't.
+      # ELF variants route to the llvm-* equivalents too. LLVM >= 20 is
+      # required: llvm-18 prints the PDBGUID as a binary blob (printBinary),
+      # and lld's synthetic cross-build GUID bytes ("LLD PDB.") are printable
+      # ASCII, which fails native-symbols.ts's PDBGUID match; llvm-20 prints a
+      # dashed GUID (printGUID/fmt_guid). ubuntu-24.04 only ships llvm-18, so
+      # pull llvm-20 from apt.llvm.org.
       - name: Install LLVM symbol tools
         run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.txt | sudo tee /etc/apt/trusted.gpg.d/llvm.asc >/dev/null
+          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main" | sudo tee /etc/apt/sources.list.d/llvm20.list
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends llvm
-          llvm_bin="$(dirname "$(readlink -f "$(command -v llvm-readobj)")")"
+          sudo apt-get install -y --no-install-recommends llvm-20
+          llvm_bin=/usr/lib/llvm-20/bin
+          test -x "$llvm_bin/llvm-readobj" && test -x "$llvm_bin/llvm-pdbutil"
+          "$llvm_bin/llvm-pdbutil" --version >/dev/null
           echo "LLVM_BIN=$llvm_bin" >> "$GITHUB_ENV"
-          "$llvm_bin/llvm-pdbutil" --version
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
