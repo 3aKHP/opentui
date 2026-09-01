@@ -93,6 +93,12 @@ export interface MarkdownOptions extends RenderableOptions<MarkdownRenderable> {
   conceal?: boolean
   /** Controls concealment inside fenced code blocks rendered by CodeRenderable. */
   concealCode?: boolean
+  /**
+   * Strikethrough delimiter flavor for marked-rendered inline content (table
+   * cells, streaming placeholders). "gfm" (default) strikes one-or-two tildes;
+   * "double-tilde" renders lone single-tilde spans as literal text.
+   */
+  strikethrough?: "gfm" | "double-tilde"
   treeSitterClient?: TreeSitterClient
   /**
    * Enable streaming mode for incremental content updates.
@@ -271,6 +277,7 @@ export class MarkdownRenderable extends Renderable {
   private _selectionFg?: RGBA
   private _conceal: boolean
   private _concealCode: boolean
+  private _strikethrough: "gfm" | "double-tilde"
   private _treeSitterClient?: TreeSitterClient
   private _tableOptions?: MarkdownTableOptions
   private _renderNode?: MarkdownOptions["renderNode"]
@@ -291,6 +298,7 @@ export class MarkdownRenderable extends Renderable {
     content: "",
     conceal: true,
     concealCode: false,
+    strikethrough: "gfm",
     streaming: false,
     internalBlockMode: "coalesced",
   } satisfies Partial<MarkdownOptions>
@@ -309,6 +317,7 @@ export class MarkdownRenderable extends Renderable {
     this._selectionFg = options.selectionFg ? parseColor(options.selectionFg) : undefined
     this._conceal = options.conceal ?? this._contentDefaultOptions.conceal
     this._concealCode = options.concealCode ?? this._contentDefaultOptions.concealCode
+    this._strikethrough = options.strikethrough ?? this._contentDefaultOptions.strikethrough
     this._content = options.content ?? this._contentDefaultOptions.content
     this._treeSitterClient = options.treeSitterClient
     this._tableOptions = options.tableOptions
@@ -411,6 +420,18 @@ export class MarkdownRenderable extends Renderable {
   set concealCode(value: boolean) {
     if (this._concealCode !== value) {
       this._concealCode = value
+      // Mark dirty - actual re-render happens in renderSelf
+      this._styleDirty = true
+    }
+  }
+
+  get strikethrough(): "gfm" | "double-tilde" {
+    return this._strikethrough
+  }
+
+  set strikethrough(value: "gfm" | "double-tilde") {
+    if (this._strikethrough !== value) {
+      this._strikethrough = value
       // Mark dirty - actual re-render happens in renderSelf
       this._styleDirty = true
     }
@@ -563,6 +584,10 @@ export class MarkdownRenderable extends Renderable {
         break
 
       case "del":
+        if (this._strikethrough === "double-tilde" && !token.raw?.startsWith("~~")) {
+          chunks.push(this.createDefaultChunk(token.raw ?? token.text ?? ""))
+          break
+        }
         if (!this._conceal) {
           chunks.push(this.createChunk("~~", "markup.strikethrough"))
         }

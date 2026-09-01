@@ -18,6 +18,7 @@ import { resolve, isAbsolute, parse } from "path"
 import { existsSync } from "fs"
 import { registerEnvVar, env } from "../env.js"
 import { isBunfsPath, normalizeBunfsPath } from "../bunfs.js"
+import { resolveAssetPath } from "../../platform/assets.js"
 import {
   type PlatformWorkerHandle,
   type WorkerErrorEvent,
@@ -64,6 +65,35 @@ export function addDefaultParsers(parsers: FiletypeParserOptions[]): void {
       ...DEFAULT_PARSER_OVERRIDES.filter((existingParser) => existingParser.filetype !== parser.filetype),
       parser,
     ]
+  }
+}
+
+/**
+ * Parser options for the strict double-tilde markdown_inline flavor: lone
+ * single-tilde spans render as literal text instead of strikethrough, and
+ * only doubled-tilde delimiters conceal. Register it before the first
+ * markdown highlight with `addDefaultParsers([strictMarkdownInlineParserOptions()])`
+ * — default-parser overrides are read when a TreeSitterClient initializes, so
+ * calling it later does not affect already-initialized clients. To retrofit a
+ * live client, use `client.addFiletypeParser(...)` instead, which replaces the
+ * stock markdown_inline parser and invalidates that worker's parser caches;
+ * already rendered highlights refresh on the next parse.
+ *
+ * Assets resolve through `OTUI_ASSET_ROOT` like stock parser assets when the
+ * variable is set, and from the package layout otherwise. Consumers that
+ * bundle OpenTUI into a single compiled artifact must relocate this file
+ * alongside the other tree-sitter assets.
+ */
+export function strictMarkdownInlineParserOptions(): FiletypeParserOptions {
+  const asset = (name: string) =>
+    resolveAssetPath(
+      `@opentui/core/assets/markdown_inline/${name}`,
+      new URL(`./assets/markdown_inline/${name}`, import.meta.url),
+    )
+  return {
+    filetype: "markdown_inline",
+    queries: { highlights: [asset("highlights.strict.scm")] },
+    wasm: asset("tree-sitter-markdown_inline.wasm"),
   }
 }
 
