@@ -1,7 +1,7 @@
 # Opt-in strict double-tilde strikethrough flavor — implementation plan
 
-Status: planned. This document lives on the vesicle line only and is excluded
-from any upstream PR (see "Release & upstream flow").
+Status: implemented on this branch. This document lives on the vesicle line
+only and is excluded from any upstream PR (see "Release & upstream flow").
 
 - Topic branch: `vesicle/feat-markdown-strict-tilde` (from `vesicle/integration-v0.5.9`)
 - Consumer request: prism-vesicle #268 item 5 (rc.2 group-test memo)
@@ -118,18 +118,30 @@ unless a consumer reports it.
 
 Export `strictMarkdownInlineParserOptions(): FiletypeParserOptions` from the
 package root: `filetype: "markdown_inline"` with the packaged wasm path and
-the strict scm path resolved via `resolveDefaultParserAsset`. Hosts apply it
-with the existing public API `addDefaultParsers()` / `addFiletypeParser()`
-(`src/lib/tree-sitter/client.ts`).
+the strict scm path. Hosts apply it with the existing public API
+`addDefaultParsers()` / `addFiletypeParser()` (`src/lib/tree-sitter/client.ts`).
+
+Implementation note (deviation from the original sketch): the helper resolves
+both asset paths via `resolveAssetPath` with `@opentui/core/assets/...` keys
+plus a source-relative fallback URL, NOT via `resolveDefaultParserAsset`. On
+Bun the latter dispatches through the generated
+`default-parser-assets.bun.ts` loader map and throws
+`Unknown OpenTUI default parser asset` for any path not registered as a
+default parser — registering there would make the strict query a default,
+breaking the opt-in requirement. The chosen seam covers source and dist
+layouts on both runtimes and honors `OTUI_ASSET_ROOT`; `bun build --compile`
+consumers must relocate the file with the other tree-sitter assets (noted in
+the helper's JSDoc).
 
 The worker already invalidates parser caches when a filetype parser is
 replaced (`parser.worker.ts` `addFiletypeParser` → `invalidateParserCaches`),
 so registering before the first markdown highlight is the clean path and late
 registration remains safe.
 
-Packaging check: the published tarball must include
-`assets/markdown_inline/highlights.strict.scm`; if the packaging script
-enumerates assets explicitly, add the file there.
+Packaging check: satisfied — `scripts/build.ts` copies every `*.scm` under
+`src/lib/tree-sitter/assets` into the dist tarball by glob, so
+`assets/markdown_inline/highlights.strict.scm` ships without packaging
+changes.
 
 ### 3.3 marked del guard (option)
 
@@ -183,11 +195,14 @@ props explicitly.
   strikethrough flavor for markdown"; default behavior unchanged. If merged
   upstream later, drop these commits from the zv patch series.
 
-## 6. Open decisions
+## 6. Open decisions — resolved 2026-09-02
 
-- Option naming: `strikethrough` vs `strikethroughFlavor`; values
-  `"gfm" | "double-tilde"` vs `"default" | "strict"`.
-- Helper export surface: package root vs a lib subpath.
-- Whether to also document host-supplied custom queries via
-  `addFiletypeParser` absolute paths (already supported by `resolvePath`) as
-  the general extension story.
+- Option naming: `strikethrough` with values `"gfm" | "double-tilde"`.
+  Matches `internalBlockMode` precedent (descriptive values), and "gfm" pins
+  the default to a stable spec term instead of the relative "default".
+- Helper export surface: defined in `client.ts` next to `addDefaultParsers`,
+  so it reaches the package root through the existing barrel; no new
+  `exports` subpath.
+- General host-supplied custom-query documentation: deferred. The flavor doc
+  mentions `addFiletypeParser` with custom paths only in passing; write the
+  full extension story when a second consumer asks for it.
