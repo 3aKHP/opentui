@@ -72,11 +72,12 @@ export function addDefaultParsers(parsers: FiletypeParserOptions[]): void {
  * Parser options for the strict double-tilde markdown_inline flavor: lone
  * single-tilde spans render as literal text instead of strikethrough, and
  * only doubled-tilde delimiters conceal. Register it before the first
- * markdown highlight with `addDefaultParsers([strictMarkdownInlineParserOptions()])`,
- * or on a specific client with `client.addFiletypeParser(...)`. Both replace
- * the stock markdown_inline parser; the worker invalidates parser caches when
- * a filetype parser is replaced, so late registration stays safe — already
- * rendered highlights refresh on the next parse.
+ * markdown highlight with `addDefaultParsers([strictMarkdownInlineParserOptions()])`
+ * — default-parser overrides are read when a TreeSitterClient initializes, so
+ * calling it later does not affect already-initialized clients. To retrofit a
+ * live client, use `client.addFiletypeParser(...)` instead, which replaces the
+ * stock markdown_inline parser and invalidates that worker's parser caches;
+ * already rendered highlights refresh on the next parse.
  *
  * Assets resolve through `OTUI_ASSET_ROOT` like stock parser assets when the
  * variable is set, and from the package layout otherwise. Consumers that

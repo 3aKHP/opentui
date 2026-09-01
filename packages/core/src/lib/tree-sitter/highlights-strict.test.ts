@@ -1,6 +1,7 @@
-import { beforeAll, describe, expect, test } from "bun:test"
-import { existsSync, readFileSync } from "node:fs"
-import { basename, join } from "node:path"
+import { afterEach, beforeAll, describe, expect, test } from "bun:test"
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { basename, dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { Language, Parser, Query } from "web-tree-sitter"
 
@@ -122,9 +123,24 @@ describe("markdown_inline stock highlights query regression", () => {
     expect(captureTexts(captures, "markup.strikethrough")).toEqual(["~text~"])
     expect(captureTexts(captures, "conceal")).toEqual(["~", "~"])
   })
+
+  test("escape captures stay verbatim with the stock query", () => {
+    const source = "a\\*b and \\_c"
+    expect(captureTexts(runQuery(source, strictQuerySource), "string.escape")).toEqual(
+      captureTexts(runQuery(source, stockQuerySource), "string.escape"),
+    )
+  })
 })
 
 describe("strictMarkdownInlineParserOptions", () => {
+  const temporaryDirectories: string[] = []
+
+  afterEach(() => {
+    for (const directory of temporaryDirectories.splice(0)) {
+      rmSync(directory, { recursive: true, force: true })
+    }
+  })
+
   test("resolves the packaged wasm and strict query to existing files", () => {
     const previousAssetRoot = process.env.OTUI_ASSET_ROOT
     delete process.env.OTUI_ASSET_ROOT
@@ -138,6 +154,49 @@ describe("strictMarkdownInlineParserOptions", () => {
       expect(existsSync(options.queries.highlights[0])).toBe(true)
     } finally {
       if (previousAssetRoot !== undefined) {
+        process.env.OTUI_ASSET_ROOT = previousAssetRoot
+      }
+    }
+  })
+
+  test("resolves through OTUI_ASSET_ROOT when configured", () => {
+    const root = mkdtempSync(join(tmpdir(), "opentui-strict-asset-"))
+    temporaryDirectories.push(root)
+    for (const name of ["highlights.strict.scm", "tree-sitter-markdown_inline.wasm"]) {
+      const source = join(root, "@opentui/core/assets/markdown_inline", name)
+      mkdirSync(dirname(source), { recursive: true })
+      writeFileSync(source, "stub")
+    }
+
+    const previousAssetRoot = process.env.OTUI_ASSET_ROOT
+    process.env.OTUI_ASSET_ROOT = root
+    try {
+      const options = strictMarkdownInlineParserOptions()
+      expect(options.queries.highlights[0]).toBe(
+        join(root, "@opentui/core/assets/markdown_inline/highlights.strict.scm"),
+      )
+    } finally {
+      if (previousAssetRoot === undefined) {
+        delete process.env.OTUI_ASSET_ROOT
+      } else {
+        process.env.OTUI_ASSET_ROOT = previousAssetRoot
+      }
+    }
+  })
+
+  test("throws when OTUI_ASSET_ROOT omits the strict query", () => {
+    const root = mkdtempSync(join(tmpdir(), "opentui-strict-asset-"))
+    temporaryDirectories.push(root)
+    mkdirSync(join(root, "@opentui/core/assets/markdown_inline"), { recursive: true })
+
+    const previousAssetRoot = process.env.OTUI_ASSET_ROOT
+    process.env.OTUI_ASSET_ROOT = root
+    try {
+      expect(() => strictMarkdownInlineParserOptions()).toThrow(/Missing OpenTUI asset/)
+    } finally {
+      if (previousAssetRoot === undefined) {
+        delete process.env.OTUI_ASSET_ROOT
+      } else {
         process.env.OTUI_ASSET_ROOT = previousAssetRoot
       }
     }

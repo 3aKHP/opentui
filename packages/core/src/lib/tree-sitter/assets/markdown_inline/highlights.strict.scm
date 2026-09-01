@@ -21,10 +21,10 @@
 (shortcut_link
   (link_text) @nospell)
 
-([
+[
   (backslash_escape)
   (hard_line_break)
-] @string.escape)
+] @string.escape
 
 ; Conceal code span markers as before.
 ((code_span_delimiter) @conceal
