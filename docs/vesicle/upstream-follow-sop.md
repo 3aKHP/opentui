@@ -105,6 +105,13 @@ On the integration branch, with the fresh native build:
   Should-fix unless documented deferral.
 - Small follow-up fixes during the release loop (CI-infra only) may take
   **Quick PR** grade — see PRs #9/#10 for the pattern.
+- Have the CR verify reproducibility claims about generated files (PR #13):
+  a "hand-synced byte-for-byte" entry position that the generator would emit
+  differently turns into reorder churn on the next regeneration. Pin
+  generator emission order (e.g. extras append last) in a test, and let the
+  reviewer actually run generators/builders offline in a scratch copy — the
+  PR #13 review caught a false byte-for-byte claim, a custom-output asset
+  leak, and reproduced the fix with a real `bun build` consumer this way.
 - Merge with `--merge` (preserve commit identity; the strict-tilde-style
   feature commits stay cherry-pickable for upstream PRs).
 
