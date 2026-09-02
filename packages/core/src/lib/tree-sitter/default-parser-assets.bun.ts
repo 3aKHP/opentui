@@ -29,6 +29,8 @@ const bundledAssetLoaders: Record<string, () => Promise<FileImportModule>> = {
   "assets/zig/highlights.scm": () => import("./assets/zig/highlights.scm" as string, { with: { type: "file" } }),
   "assets/zig/tree-sitter-zig.wasm": () =>
     import("./assets/zig/tree-sitter-zig.wasm" as string, { with: { type: "file" } }),
+  "assets/markdown_inline/highlights.strict.scm": () =>
+    import("./assets/markdown_inline/highlights.strict.scm" as string, { with: { type: "file" } }),
 }
 
 export function resolveBundledDefaultParserAsset(relativePath: string, fallbackPath: URL): Promise<string> {

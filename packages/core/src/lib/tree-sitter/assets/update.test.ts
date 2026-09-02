@@ -38,6 +38,11 @@ test("custom parser generation loads its assets without overwriting an undeclare
     expect(parsers).toHaveLength(1)
     expect(existsSync(parsers[0].wasm)).toBe(true)
     expect(existsSync(parsers[0].queries.highlights[0])).toBe(true)
+
+    // Package-internal extra bundled assets must not leak into custom
+    // outputs: their import paths only exist inside the package, so a
+    // consumer bundling this generated file would hit an unresolvable import.
+    expect(readFileSync(outputPath, "utf8")).not.toContain("highlights.strict.scm")
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
