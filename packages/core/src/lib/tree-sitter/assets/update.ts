@@ -150,6 +150,13 @@ async function downloadAndCombineQueries(
 }
 
 async function generateDefaultParsersFile(parsers: GeneratedParser[], outputPath: string): Promise<void> {
+  // Variant assets that ship in the package but belong to no default parser
+  // descriptor. They join the default output's bundled-asset loader map so
+  // re-bundled and compiled consumers can embed and resolve them like stock
+  // parser assets, without becoming part of the default parser set (staying
+  // opt-in). Custom --output generations never include them: the paths exist
+  // only inside this package and would dangle in a consumer tree.
+  const extraBundledAssetPaths = ["assets/markdown_inline/highlights.strict.scm"]
   const descriptors = parsers.map((parser) => ({
     filetype: parser.filetype,
     ...(parser.aliases?.length ? { aliases: parser.aliases } : {}),
@@ -160,16 +167,17 @@ async function generateDefaultParsersFile(parsers: GeneratedParser[], outputPath
     wasm: toPackageRelativeAssetPath(parser.languagePath),
     ...(parser.injectionMapping ? { injectionMapping: parser.injectionMapping } : {}),
   }))
+  const isDefaultOutput = path.resolve(outputPath) === getDefaultOptions().outputPath
   const assetPaths = [
-    ...new Set(
-      parsers.flatMap((parser) =>
+    ...new Set([
+      ...parsers.flatMap((parser) =>
         [parser.highlightsPath, parser.languagePath, parser.injectionsPath]
           .filter((assetPath): assetPath is string => assetPath !== undefined)
           .map(toPackageRelativeAssetPath),
       ),
-    ),
+      ...(isDefaultOutput ? extraBundledAssetPaths : []),
+    ]),
   ]
-  const isDefaultOutput = path.resolve(outputPath) === getDefaultOptions().outputPath
   const bundledAssetLoaderEntries = assetPaths
     .map(
       (assetPath) =>

@@ -18,14 +18,17 @@ import { resolve, isAbsolute, parse } from "path"
 import { existsSync } from "fs"
 import { registerEnvVar, env } from "../env.js"
 import { isBunfsPath, normalizeBunfsPath } from "../bunfs.js"
-import { resolveAssetPath } from "../../platform/assets.js"
 import {
   type PlatformWorkerHandle,
   type WorkerErrorEvent,
   type WorkerMessageEvent,
   Worker as PlatformWorker,
 } from "../../platform/worker.js"
-import { resolveDefaultTreeSitterWorkerPath, resolveTreeSitterWasm } from "#opentui/runtime-assets"
+import {
+  resolveDefaultParserAsset,
+  resolveDefaultTreeSitterWorkerPath,
+  resolveTreeSitterWasm,
+} from "#opentui/runtime-assets"
 
 registerEnvVar({
   name: "OTUI_TREE_SITTER_WORKER_PATH",
@@ -72,28 +75,33 @@ export function addDefaultParsers(parsers: FiletypeParserOptions[]): void {
  * Parser options for the strict double-tilde markdown_inline flavor: lone
  * single-tilde spans render as literal text instead of strikethrough, and
  * only doubled-tilde delimiters conceal. Register it before the first
- * markdown highlight with `addDefaultParsers([strictMarkdownInlineParserOptions()])`
+ * markdown highlight with `addDefaultParsers([await strictMarkdownInlineParserOptions()])`
  * — default-parser overrides are read when a TreeSitterClient initializes, so
  * calling it later does not affect already-initialized clients. To retrofit a
  * live client, use `client.addFiletypeParser(...)` instead, which replaces the
  * stock markdown_inline parser and invalidates that worker's parser caches;
  * already rendered highlights refresh on the next parse.
  *
- * Assets resolve through `OTUI_ASSET_ROOT` like stock parser assets when the
- * variable is set, and from the package layout otherwise. Consumers that
- * bundle OpenTUI into a single compiled artifact must relocate this file
- * alongside the other tree-sitter assets.
+ * Assets resolve through `resolveDefaultParserAsset` exactly like stock
+ * parser assets: `OTUI_ASSET_ROOT` wins when set, the generated bundled-asset
+ * loaders resolve (and let bundlers embed) the files in re-bundled consumers,
+ * and the package layout is the fallback. Resolving a bundled file is async,
+ * hence the promise-returning signature.
  */
-export function strictMarkdownInlineParserOptions(): FiletypeParserOptions {
+export async function strictMarkdownInlineParserOptions(): Promise<FiletypeParserOptions> {
   const asset = (name: string) =>
-    resolveAssetPath(
-      `@opentui/core/assets/markdown_inline/${name}`,
+    resolveDefaultParserAsset(
+      `assets/markdown_inline/${name}`,
       new URL(`./assets/markdown_inline/${name}`, import.meta.url),
     )
+  const [highlights, wasm] = await Promise.all([
+    asset("highlights.strict.scm"),
+    asset("tree-sitter-markdown_inline.wasm"),
+  ])
   return {
     filetype: "markdown_inline",
-    queries: { highlights: [asset("highlights.strict.scm")] },
-    wasm: asset("tree-sitter-markdown_inline.wasm"),
+    queries: { highlights: [highlights] },
+    wasm,
   }
 }
 

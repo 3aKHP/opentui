@@ -116,22 +116,45 @@ unless a consumer reports it.
 
 ### 3.2 Host wiring helper (small public API)
 
-Export `strictMarkdownInlineParserOptions(): FiletypeParserOptions` from the
-package root: `filetype: "markdown_inline"` with the packaged wasm path and
-the strict scm path. Hosts apply it with the existing public API
+Export `strictMarkdownInlineParserOptions(): Promise<FiletypeParserOptions>`
+from the package root: `filetype: "markdown_inline"` with the packaged wasm
+path and the strict scm path. Hosts apply it with the existing public API
 `addDefaultParsers()` / `addFiletypeParser()` (`src/lib/tree-sitter/client.ts`).
 
-Implementation note (deviation from the original sketch): the helper resolves
-both asset paths via `resolveAssetPath` with `@opentui/core/assets/...` keys
-plus a source-relative fallback URL, NOT via `resolveDefaultParserAsset`. On
-Bun the latter dispatches through the generated
-`default-parser-assets.bun.ts` loader map and throws
-`Unknown OpenTUI default parser asset` for any path not registered as a
-default parser — registering there would make the strict query a default,
-breaking the opt-in requirement. The chosen seam covers source and dist
-layouts on both runtimes and honors `OTUI_ASSET_ROOT`; `bun build --compile`
-consumers must relocate the file with the other tree-sitter assets (noted in
-the helper's JSDoc).
+Implementation history — two seams, in order:
+
+1. **0.5.9-zv2 (original)**: the helper resolved both asset paths via
+   `resolveAssetPath` with `@opentui/core/assets/...` keys plus a
+   source-relative fallback URL, NOT via `resolveDefaultParserAsset`, on the
+   theory that registering in the generated loader map would make the strict
+   query a default parser and break the opt-in requirement. That conflated
+   the loader map (an embeddable-asset registry) with the default parser
+   descriptor set (the thing that makes a parser default). The seam worked
+   only when running from the installed package layout: any consumer that
+   re-bundles the core JS (npm bundles, `bun build --compile`) inlines the
+   helper, whose `import.meta.url` fallback then points into the consumer's
+   own artifact — Vesicle's npm-package smoke caught inline highlighting
+   dying wholesale because the registered override carried dead paths.
+2. **0.5.10-zv5 (fix)**: the helper resolves via `resolveDefaultParserAsset`
+   exactly like stock parser assets, and `assets/update.ts` carries an
+   explicit extra-bundled-assets list so the generated
+   `default-parser-assets.bun.ts` loader map includes
+   `assets/markdown_inline/highlights.strict.scm` without adding it to the
+   default descriptors (still opt-in). The list feeds the default output only —
+   custom `--output` generations keep consumer-local assets, since
+   package-internal paths would dangle in a consumer tree. Bun bundlers now
+   embed the file and the loader returns its real path from the bundle output;
+   `OTUI_ASSET_ROOT` keeps winning when set. Resolving a bundled file is
+   async, hence the promise-returning signature (the only consumer is
+   Vesicle, updated in lockstep). Tests pin the loader-map entry and its
+   position (extras emit last, so regeneration is a no-op diff), and a
+   `bun build` re-bundled-consumer test asserts live emitted paths. Node
+   caveat: bundled-file resolution is Bun-only. `OTUI_ASSET_ROOT` relocation
+   on Node requires the caller to also place the strict query under the root —
+   the `./node-assets` manifest (`getNodeAssets`) is derived from
+   default-parser descriptors and does not include it (tracked in fork issue
+   #12) — and re-bundled Node consumers keep the stock `import.meta.url`
+   limitation.
 
 The worker already invalidates parser caches when a filetype parser is
 replaced (`parser.worker.ts` `addFiletypeParser` → `invalidateParserCaches`),

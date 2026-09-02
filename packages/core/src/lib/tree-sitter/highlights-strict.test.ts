@@ -141,11 +141,11 @@ describe("strictMarkdownInlineParserOptions", () => {
     }
   })
 
-  test("resolves the packaged wasm and strict query to existing files", () => {
+  test("resolves the packaged wasm and strict query to existing files", async () => {
     const previousAssetRoot = process.env.OTUI_ASSET_ROOT
     delete process.env.OTUI_ASSET_ROOT
     try {
-      const options = strictMarkdownInlineParserOptions()
+      const options = await strictMarkdownInlineParserOptions()
       expect(options.filetype).toBe("markdown_inline")
       expect(existsSync(options.wasm)).toBe(true)
       expect(basename(options.wasm)).toBe("tree-sitter-markdown_inline.wasm")
@@ -159,7 +159,7 @@ describe("strictMarkdownInlineParserOptions", () => {
     }
   })
 
-  test("resolves through OTUI_ASSET_ROOT when configured", () => {
+  test("resolves through OTUI_ASSET_ROOT when configured", async () => {
     const root = mkdtempSync(join(tmpdir(), "opentui-strict-asset-"))
     temporaryDirectories.push(root)
     for (const name of ["highlights.strict.scm", "tree-sitter-markdown_inline.wasm"]) {
@@ -171,7 +171,7 @@ describe("strictMarkdownInlineParserOptions", () => {
     const previousAssetRoot = process.env.OTUI_ASSET_ROOT
     process.env.OTUI_ASSET_ROOT = root
     try {
-      const options = strictMarkdownInlineParserOptions()
+      const options = await strictMarkdownInlineParserOptions()
       expect(options.queries.highlights[0]).toBe(
         join(root, "@opentui/core/assets/markdown_inline/highlights.strict.scm"),
       )
@@ -184,7 +184,7 @@ describe("strictMarkdownInlineParserOptions", () => {
     }
   })
 
-  test("throws when OTUI_ASSET_ROOT omits the strict query", () => {
+  test("throws when OTUI_ASSET_ROOT omits the strict query", async () => {
     const root = mkdtempSync(join(tmpdir(), "opentui-strict-asset-"))
     temporaryDirectories.push(root)
     mkdirSync(join(root, "@opentui/core/assets/markdown_inline"), { recursive: true })
@@ -192,7 +192,36 @@ describe("strictMarkdownInlineParserOptions", () => {
     const previousAssetRoot = process.env.OTUI_ASSET_ROOT
     process.env.OTUI_ASSET_ROOT = root
     try {
-      expect(() => strictMarkdownInlineParserOptions()).toThrow(/Missing OpenTUI asset/)
+      await expect(strictMarkdownInlineParserOptions()).rejects.toThrow(/Missing OpenTUI asset/)
+    } finally {
+      if (previousAssetRoot === undefined) {
+        delete process.env.OTUI_ASSET_ROOT
+      } else {
+        process.env.OTUI_ASSET_ROOT = previousAssetRoot
+      }
+    }
+  })
+
+  test("registers the strict query as a bundlable core asset", async () => {
+    // The generated loader map is what lets re-bundled and compiled consumers
+    // embed and re-resolve the strict query; regenerating assets must keep
+    // the entry or the helper breaks outside the package layout.
+    const previousAssetRoot = process.env.OTUI_ASSET_ROOT
+    delete process.env.OTUI_ASSET_ROOT
+    try {
+      const { resolveBundledDefaultParserAsset } = await import("./default-parser-assets.bun.js")
+      const resolved = await resolveBundledDefaultParserAsset(
+        "assets/markdown_inline/highlights.strict.scm",
+        new URL("./assets/markdown_inline/highlights.strict.scm", import.meta.url),
+      )
+      expect(existsSync(resolved)).toBe(true)
+
+      // The generator appends extra bundled assets after every parser asset;
+      // the committed map must match that order so regeneration is a no-op
+      // diff rather than reorder churn.
+      const loaderMapSource = readFileSync(new URL("./default-parser-assets.bun.ts", import.meta.url), "utf8")
+      const loaderKeys = [...loaderMapSource.matchAll(/^  "([^"]+)":/gm)].map((match) => match[1])
+      expect(loaderKeys.at(-1)).toBe("assets/markdown_inline/highlights.strict.scm")
     } finally {
       if (previousAssetRoot === undefined) {
         delete process.env.OTUI_ASSET_ROOT
